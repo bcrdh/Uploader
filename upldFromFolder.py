@@ -170,9 +170,11 @@ def upload_xml(file, repo, num):
 
 
 sign_in('Sharon Hanna', '0re02oo2')
-# 10 workers so the website is not overloaded
-# with excessive uploading / parsing of the XML files
-# This might be able to go higher, we just have to experiment
+"""
+10 workers so the website is not overloaded
+with excessive uploading / parsing of the XML files
+This might be able to go higher, we just have to experiment
+"""
 with ThreadPoolExecutor(max_workers=10) as executor:
     file_list = set()
     for filename in glob.iglob(
