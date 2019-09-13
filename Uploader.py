@@ -1,8 +1,12 @@
+"""
+Contains the entire program, the other py files
+are just old files.
+"""
 import os
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtCore import QThreadPool, QRunnable, QObject, pyqtSignal, pyqtSlot
-from PyQt5.QtWidgets import QFileDialog, QTableWidgetItem, QHeaderView, QMessageBox
+from PyQt5.QtWidgets import QFileDialog, QMessageBox
 
 import glob
 from robobrowser import RoboBrowser
@@ -183,6 +187,14 @@ Main UI stuff
 
 
 def upload(items, row_index):
+    """
+    Helper method that initiates the upload process. Called by
+    any Worker in the threadpool.
+    :param items: the cells of the row being processed, as text.
+    :param row_index: the index of the row being processed
+    :return: the result of the upload as a tuple with a boolean
+    indicating if it was successful and the row index.
+    """
     result = (upload_xml(items[2], items[0], items[1]), row_index)
     return result
 
@@ -191,7 +203,6 @@ class WorkerSignals(QObject):
     """
     The possible return types from a Worker object
     """
-    finished = pyqtSignal()
     result = pyqtSignal(tuple)
     started = pyqtSignal(int)
 
@@ -202,6 +213,7 @@ class Worker(QRunnable):
     i.e. a single collection object
     https://www.learnpyqt.com/courses/concurrent-execution/multithreading-pyqt-applications-qthreadpool/
     """
+
     def __init__(self, fn, *args, **kwargs):
         super(Worker, self).__init__()
         self.fn = fn
@@ -215,7 +227,6 @@ class Worker(QRunnable):
         self.signals.started.emit(row_index)
         result = self.fn(items, row_index)
         self.signals.result.emit(result)
-        self.signals.finished.emit()
 
 
 """
@@ -224,7 +235,9 @@ All UI setup is down here
 
 
 class Ui_MainWindow(object):
-
+    """
+    Some static colors that will be used often in the UI
+    """
     GREEN = QtGui.QColor(196, 237, 194)
     YELLOW = QtGui.QColor(247, 247, 181)
     RED = QtGui.QColor(237, 194, 194)
@@ -281,10 +294,10 @@ class Ui_MainWindow(object):
         self.progressBar.setProperty("value", 0)
         self.progressBar.setObjectName("progressBar")
         self.lblProgress = QtWidgets.QLabel(self.centralwidget)
-        self.lblProgress.setGeometry(QtCore.QRect(180, 510, 101, 16))
+        self.lblProgress.setGeometry(QtCore.QRect(138, 510, 320, 16))
         font = QtGui.QFont()
         font.setFamily("Arial")
-        font.setPointSize(16)
+        font.setPointSize(14)
         font.setBold(True)
         font.setWeight(75)
         self.lblProgress.setFont(font)
@@ -359,7 +372,23 @@ class Ui_MainWindow(object):
         self.threadpool = QThreadPool()
         self.threadpool.setMaxThreadCount(max_threads)
 
-    def show_error_message(self, msg):
+        """
+        Variables for tracking progress
+        """
+        # The number of successful uploads done
+        self.successful_uploads = 0
+        self.successful_uploads_lock = QtCore.QMutex()
+        # The total number of upload attempts, successful or not
+        self.completed_tasks = 0
+        self.completed_tasks_lock = QtCore.QMutex()
+
+    @staticmethod
+    def show_error_message(msg):
+        """
+        Helper method to display a messagebox with an error
+        :param msg: the error message
+        :return: None
+        """
         msg_box = QMessageBox()
         msg_box.setIcon(QMessageBox.Critical)
         msg_box.setText(msg)
@@ -368,6 +397,14 @@ class Ui_MainWindow(object):
         msg_box.exec_()
 
     def start(self):
+        """
+        Called when the user clicks the Begin Upload button.
+        This function checks if there are valid MODS XML files loaded,
+        whether there is a username and password and if there is, whether
+        the username and password are valid. Then creates a threadpool and
+        submits all the files to be processed
+        :return: None
+        """
         # Make sure table has files, username and password are entered
         if self.tableWidget.rowCount() is 0:
             self.show_error_message("No files have been loaded! Select" +
@@ -388,26 +425,55 @@ class Ui_MainWindow(object):
                 worker = Worker(upload, items, i)
                 worker.signals.started.connect(self.started)
                 worker.signals.result.connect(self.worker_response_handler)
-                worker.signals.finished.connect(self.worker_done)
 
                 self.threadpool.start(worker)
 
     def started(self, row_index):
+        """
+        The function that handles a started emit from a Worker.
+        When a upload task starts, it calls this method to update the UI
+        and set the row to yellow to inform the user the row is being
+        processed (i.e. the uploading process)
+        :param row_index: the index of the row being processed
+        :return: None
+        """
         self.set_row_color(row_index, Ui_MainWindow.YELLOW)
 
     def worker_response_handler(self, completed):
+        """
+        The handler to handle a response from a Worker when
+        an upload task is completed (not necessarily successful)
+        :param completed: the tuple holding the result from the Worker
+        :return: None
+        """
+        # Pattern match the tuple
         success, row_index = completed
         if success:
             self.set_row_color(row_index, Ui_MainWindow.GREEN)
+            # Safely increment successful upload
+            # And update progress label
+            self.successful_uploads_lock.lock()
+            self.successful_uploads = self.successful_uploads + 1
+            self.lblProgress.setText \
+                ("Successfully uploaded: " + str(self.successful_uploads) + "/" + str(self.tableWidget.rowCount()))
+            self.successful_uploads_lock.unlock()
         else:
             self.set_row_color(row_index, Ui_MainWindow.RED)
 
-
-    def worker_done(self):
-        print("Finished thred")
-
+        # Safely increment completed tasks
+        # and set progress bar value
+        self.completed_tasks_lock.lock()
+        self.completed_tasks = self.completed_tasks + 1
+        self.progressBar.setValue((self.completed_tasks / self.tableWidget.rowCount()) * 100)
+        self.completed_tasks_lock.unlock()
 
     def load_xml_from_folder(self):
+        """
+        Loads all XML files from a folder recursively using globe.
+        :return: None
+        """
+        # Reset the UI and its variables
+        self.reset()
         # Create a set of all the files to upload
         file_list = set()
         for filename in glob.iglob(
@@ -431,7 +497,6 @@ class Ui_MainWindow(object):
                 self.tableWidget.setItem(row_index, 0, QtWidgets.QTableWidgetItem(repository))
                 self.tableWidget.setItem(row_index, 1, QtWidgets.QTableWidgetItem(number))
                 self.tableWidget.setItem(row_index, 2, QtWidgets.QTableWidgetItem(filename))
-                # self.set_row_color(row_index, Ui_MainWindow.GREEN)
                 row_index = row_index + 1
             except Exception as e:
                 print(e)
@@ -445,6 +510,11 @@ class Ui_MainWindow(object):
         header.setSectionResizeMode(2, QtWidgets.QHeaderView.ResizeToContents)
 
     def set_folder(self):
+        """
+        Sets the folder selected by the user in the label and
+        calls the function to load XML files from it
+        :return: None
+        """
         dir_path = str(
             QFileDialog.getExistingDirectory(None,
                                              'Select Folder',
@@ -456,16 +526,44 @@ class Ui_MainWindow(object):
             self.lblPath.setText(dir_path)
             self.load_xml_from_folder()
 
+    def reset(self):
+        """
+        Resets the UI variables and elements
+        for another upload session
+        :return: None
+        """
+        self.completed_tasks = 0
+        self.successful_uploads = 0
+        self.progressBar.setValue(0)
+        self.lblProgress.setText("")
+
     def setup_events(self):
+        """
+        Connects the UI buttons to relevant functions,
+        called only once at the start of the program
+        :return: None
+        """
         self.btnSelectFolder.clicked.connect(self.set_folder)
         self.btnStart.clicked.connect(self.start)
 
     def set_row_color(self, row_index, color):
-        # color e.g. QtGui.QColor(QtCore.Qt.green)
+        """
+        Sets the color of a row given the index of it
+        :param row_index: the index of the row to color
+        :param color: the color as a QtGui.QColor e.g. QtGui.QColor(QtCore.Qt.green)
+        Can also use the static color variables set in the UI for yellow, red & green
+        :return: None
+        """
         for i in range(self.tableWidget.columnCount()):
             self.tableWidget.item(row_index, i).setBackground(color)
 
     def retranslate_ui(self, MainWindow):
+        """
+        Renames all the elements that need custom text from
+        their default text
+        :param MainWindow: the ui window
+        :return: None
+        """
         _translate = QtCore.QCoreApplication.translate
         MainWindow.setWindowTitle(_translate("MainWindow", "DOH - MODS XML Uploader"))
         self.lblName.setText(_translate("MainWindow", "DOH - MODS XML Uploader"))
@@ -484,6 +582,7 @@ class Ui_MainWindow(object):
 
 if __name__ == "__main__":
     import sys
+
     app = QtWidgets.QApplication(sys.argv)
     MainWindow = QtWidgets.QMainWindow()
     ui = Ui_MainWindow(MainWindow)
