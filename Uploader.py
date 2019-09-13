@@ -12,8 +12,11 @@ import glob
 from robobrowser import RoboBrowser
 
 """
-The max number of concurrent active
-threads in the thread pool
+The max number of concurrent threads active
+in the thread pool.
+10 workers so the website is not overloaded
+with excessive uploading / parsing of the XML files
+This might be able to go higher, we just have to experiment
 """
 max_threads = 10
 
