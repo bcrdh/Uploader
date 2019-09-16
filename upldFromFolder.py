@@ -142,9 +142,6 @@ def upload_xml(file, repo, num):
             form = browser.get_form(id='islandora-datastream-version-replace-form')
             # Set the file to upload
             form['files[file]'].value = open(file, 'r')
-            # Submit the form
-            # This submit adds the file
-            browser.submit_form(form, submit=form['file_upload_button'])
             # This submit submits the form
             browser.submit_form(form, submit=form['op'])
             print('Uploaded ' + file)
