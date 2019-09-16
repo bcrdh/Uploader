@@ -473,7 +473,7 @@ class Ui_MainWindow(object):
         for filename in file_list:
             try:
                 # Parse the path to get the repository and number
-                fnms = filename.split('\\')
+                fnms = filename.split(os.sep)
                 objIDpts = fnms[-1].split("_")
                 repository = objIDpts[0]
                 number = objIDpts[1].split(".")[0]
