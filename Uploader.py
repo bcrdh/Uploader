@@ -252,8 +252,8 @@ class Ui_MainWindow(object):
         """
         MainWindow.setObjectName("MainWindow")
         MainWindow.resize(550, 540)
-        MainWindow.setMinimumSize(QtCore.QSize(550, 570))
-        MainWindow.setMaximumSize(QtCore.QSize(550, 570))
+        MainWindow.setMinimumSize(QtCore.QSize(550, 525))
+        MainWindow.setMaximumSize(QtCore.QSize(550, 525))
         self.centralwidget = QtWidgets.QWidget(MainWindow)
         self.centralwidget.setObjectName("centralwidget")
         self.lblLogo = QtWidgets.QLabel(self.centralwidget)
@@ -296,16 +296,6 @@ class Ui_MainWindow(object):
         self.progressBar.setGeometry(QtCore.QRect(10, 480, 531, 20))
         self.progressBar.setProperty("value", 0)
         self.progressBar.setObjectName("progressBar")
-        self.lblProgress = QtWidgets.QLabel(self.centralwidget)
-        self.lblProgress.setGeometry(QtCore.QRect(138, 510, 320, 16))
-        font = QtGui.QFont()
-        font.setFamily("Arial")
-        font.setPointSize(14)
-        font.setBold(True)
-        font.setWeight(75)
-        self.lblProgress.setFont(font)
-        self.lblProgress.setText("")
-        self.lblProgress.setObjectName("lblProgress")
         self.tableWidget = QtWidgets.QTableWidget(self.centralwidget)
         self.tableWidget.setGeometry(QtCore.QRect(10, 150, 531, 281))
         self.tableWidget.setColumnCount(3)
@@ -378,9 +368,6 @@ class Ui_MainWindow(object):
         """
         Variables for tracking progress
         """
-        # The number of successful uploads done
-        self.successful_uploads = 0
-        self.successful_uploads_lock = QtCore.QMutex()
         # The total number of upload attempts, successful or not
         self.completed_tasks = 0
         self.completed_tasks_lock = QtCore.QMutex()
@@ -453,13 +440,6 @@ class Ui_MainWindow(object):
         success, row_index = completed
         if success:
             self.set_row_color(row_index, Ui_MainWindow.GREEN)
-            # Safely increment successful upload
-            # And update progress label
-            self.successful_uploads_lock.lock()
-            self.successful_uploads = self.successful_uploads + 1
-            self.lblProgress.setText \
-                ("Successfully uploaded: " + str(self.successful_uploads) + "/" + str(self.tableWidget.rowCount()))
-            self.successful_uploads_lock.unlock()
         else:
             self.set_row_color(row_index, Ui_MainWindow.RED)
 
@@ -480,7 +460,7 @@ class Ui_MainWindow(object):
         # Create a set of all the files to upload
         file_list = set()
         for filename in glob.iglob(
-                self.lblPath.text().replace("/", "\\") + '\\**\\*.xml', recursive=True):
+                self.lblPath.text().replace("/", os.sep) + os.sep + '**' + os.sep + '*.xml', recursive=True):
             file_list.add(filename)
         # Set the new file count
         self.file_count = len(file_list)
@@ -526,7 +506,7 @@ class Ui_MainWindow(object):
                                              )
         )
         if dir_path is not None and len(dir_path) > 0:
-            self.lblPath.setText(dir_path)
+            self.lblPath.setText(dir_path.replace("/", os.sep))
             self.load_xml_from_folder()
 
     def reset(self):
@@ -536,9 +516,7 @@ class Ui_MainWindow(object):
         :return: None
         """
         self.completed_tasks = 0
-        self.successful_uploads = 0
         self.progressBar.setValue(0)
-        self.lblProgress.setText("")
 
     def setup_events(self):
         """
