@@ -163,14 +163,14 @@ def upload_xml(file, repo, num):
             # Get the upload file form
             form = browser.get_form(id='islandora-datastream-version-replace-form')
             # Set the file to upload
-            form['files[file]'].value = open(file, 'r')
-            # Submit the form
-            # This submit adds the file
-            browser.submit_form(form, submit=form['file_upload_button'])
+            f = open(file, 'r')
+            form['files[file]'].value = f
             # This submit submits the form
             browser.submit_form(form, submit=form['op'])
             # Release the lock
             release_lock(browser, manage_url)
+            # Close the file
+            f.close()
             # Success
             return True
         else:
@@ -508,7 +508,7 @@ class Ui_MainWindow(object):
         if row_index is 0:
             self.tableWidget.setRowCount(0)
 
-        # Set Path size
+        # Set Path column size
         header = self.tableWidget.horizontalHeader()
         header.setSectionResizeMode(2, QtWidgets.QHeaderView.ResizeToContents)
 
