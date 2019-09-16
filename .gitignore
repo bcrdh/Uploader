@@ -2,4 +2,3 @@ venv/
 .idea/
 .git/
 *.exe
-*.zip
