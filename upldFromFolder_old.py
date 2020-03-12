@@ -9,7 +9,7 @@ from urllib.request import urlopen
 from bs4 import BeautifulSoup 
 browser = webdriver.Chrome()
 usernameStr = 'Sharon Hanna'
-passwordStr = '0re02oo2'
+passwordStr = ''
 browser.get('https://doh.arcabc.ca/user/login')
  
 def uploadXML(filepath, browser, repo, num):
